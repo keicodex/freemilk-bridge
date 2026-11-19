@@ -43,6 +43,14 @@ python3 login_fetch.py bulk-add accounts.json
 python3 login_fetch.py sync-9router
 ```
 
+> ⚠️ **Sign-in only works from the literal `localhost` hostname.**
+> Open the sign-in page as `http://localhost:18620/auth.html`. The
+> IP form `http://127.0.0.1:18620/auth.html` — and any tunnel or
+> public URL (ngrok, cloudflared, localhost.run, GitHub Pages) —
+> fails with `auth/unauthorized-domain`: Firebase's allowlist for
+> the FreeMilk project covers `localhost` and Milq's own domains
+> only. Do not expose the auth page through a tunnel for login.
+
 That's the whole flow. Step 3 detects your local 9Router, creates the
 `freemilk` node, registers **one connection per account**, and adds the
 `freemilk/opus-5.5` model. Add the model to any combo in the panel and
@@ -58,8 +66,8 @@ install: freemilk-bridge service enabled + started (port 18611)
 install: bridge healthy at http://127.0.0.1:18611/health
 
 $ python3 login_fetch.py login
-Step 1: open http://127.0.0.1:18620/auth.html in a browser on this
-machine (or tunnel port 18620) and sign in with Google…
+Step 1: open http://localhost:18620/auth.html in a browser on this
+machine and sign in with Google…
 Step 2: paste that JSON here, then press Ctrl-D:
 tokens stored: firebaseIdToken, firebaseRefreshToken
 Step 3: fetching the provider profile from FreeMilk...

@@ -928,10 +928,11 @@ def cmd_serve_auth():
     if server is None:
         print("could not bind 127.0.0.1:18620 (already in use?)")
         return 2
-    print("serving the sign-in page at http://127.0.0.1:18620/auth.html "
-          "(localhost is an authorised Firebase origin; tunnel or open "
-          "locally, complete Google sign-in, then hand the two tokens "
-          "to set-tokens)")
+    print("serving the sign-in page at http://localhost:18620/auth.html "
+          "(use the localhost hostname exactly — 127.0.0.1 and tunnel "
+          "URLs are NOT authorised Firebase origins and sign-in fails "
+          "there with auth/unauthorized-domain; complete Google "
+          "sign-in, then hand the two tokens to set-tokens)")
     try:
         while True:
             time.sleep(3600)
@@ -946,10 +947,12 @@ def cmd_login(data):
     a one-line verdict. Tokens come from stdin only — never argv,
     never logs."""
     server = _start_auth_server()
-    print("Step 1: open http://127.0.0.1:18620/auth.html in a browser "
-          "on this machine (or tunnel port 18620) and sign in with "
-          "Google. The page shows a JSON object with your ID token "
-          "and refresh token.")
+    print("Step 1: open http://localhost:18620/auth.html in a browser "
+          "on this machine and sign in with Google. (The hostname "
+          "must be exactly 'localhost' — 127.0.0.1 and tunnel URLs "
+          "are rejected by Firebase with auth/unauthorized-domain.) "
+          "The page shows a JSON object with your ID token and "
+          "refresh token.")
     print("Step 2: paste that JSON here, then press Ctrl-D:")
     sys.stdout.flush()
     raw = sys.stdin.read()

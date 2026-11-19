@@ -7,11 +7,13 @@
   `login_fetch.py set-tokens` on the bridge box.
 
   IMPORTANT: Firebase web auth only works from an *authorised origin*.
-  `localhost` is authorised by default in every Firebase project, so
-  serve this file locally (e.g. `python3 login_fetch.py serve-auth`,
-  then open http://127.0.0.1:18620/auth.html) or open it on any other
-  origin the project owner has authorised. Opening it from an arbitrary
-  internet domain will fail with auth/unauthorized-domain.
+  For this project (milq-mobile) the allowlist covers the literal
+  `localhost` hostname and Milq's own domains only, so serve this file
+  locally (e.g. `python3 login_fetch.py serve-auth`, then open
+  http://localhost:18620/auth.html — hostname exactly `localhost`).
+  The IP literal 127.0.0.1 is NOT authorised, and neither is any
+  tunnel or public URL (ngrok, cloudflared, localhost.run,
+  GitHub Pages): all of them fail with auth/unauthorized-domain.
 
   The tokens are rendered only in this page (client-side). Nothing is
   sent anywhere except to Google's own sign-in endpoints.

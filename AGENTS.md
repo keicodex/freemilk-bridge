@@ -64,14 +64,23 @@ curl -s http://127.0.0.1:18611/health
 python3 login_fetch.py login
 ```
 
-The command serves the sign-in page on `http://127.0.0.1:18620/auth.html`.
-The operator opens it (locally, or through an SSH tunnel of port
-18620), signs in with Google, and the page shows a JSON object with
+The command serves the sign-in page on `http://localhost:18620/auth.html`.
+The operator opens it in a browser **on this machine**, signs in with
+Google, and the page shows a JSON object with
 `idToken` + `refreshToken`. The operator hands that JSON to you
 **once**; feed it to the waiting command on stdin. It stores the
 tokens, fetches the provider profile, and prints a verdict.
 
 Success: exit code 0 and a line starting `LOGIN OK`.
+
+> ⚠️ **The sign-in page ONLY works from the literal `localhost`
+> hostname.** `http://127.0.0.1:18620/auth.html` and any tunnel or
+> public URL (ngrok, cloudflared, localhost.run, GitHub Pages) fail
+> with `auth/unauthorized-domain` — Firebase's allowlist for the
+> FreeMilk project (milq-mobile) covers `localhost` and Milq's own
+> domains only. Never expose the auth page through a tunnel for
+> login; if the operator cannot open a browser on this machine, use
+> the account.milq.ai cookie alternative below instead.
 
 Alternative token source: the operator signs in at
 https://account.milq.ai and hands you the session cookie value
