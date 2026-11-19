@@ -112,7 +112,7 @@ SECURETOKEN_URL = os.environ.get(
 # Public client identifiers of the milq-mobile Firebase project, taken
 # from the shipped app's GoogleService-Info.plist (they are identifiers,
 # not credentials — every installed copy of the app carries them).
-DEFAULT_FIREBASE_API_KEY = "AIzaSyCUPyE6B8H4-8pBJs3cH7vQ9sBdqJ2nF8M"
+DEFAULT_FIREBASE_API_KEY = "AIzaSyC3618xCRXx5WxNKsQVjkioTmCKlw6zZ0M"
 FIREBASE_PROJECT = "milq-mobile"
 FIREBASE_AUTH_DOMAIN = "milq-mobile.firebaseapp.com"
 
