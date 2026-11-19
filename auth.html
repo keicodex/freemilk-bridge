@@ -6,6 +6,14 @@
   the resulting ID token + refresh token ONCE, for hand-off to
   `login_fetch.py set-tokens` on the bridge box.
 
+  NOTE: this page yields Firebase tokens ONLY. It does not enrol a
+  Milq account and does not fetch a provider profile: enrolment
+  happens inside the FreeMilk iOS app, in an exchange that carries a
+  DeviceCheck token minted on genuine Apple hardware, and profile
+  issuance sits behind the backend's app-only client gate. The
+  bridge's supported input is captured session material from an
+  already-enrolled account — see "Reality check" in README.md.
+
   IMPORTANT: Firebase web auth only works from an *authorised origin*.
   For this project (milq-mobile) the allowlist covers the literal
   `localhost` hostname and Milq's own domains only, so serve this file

@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
-"""login_fetch.py — pure-login helper for freemilk-bridge (no iOS device).
+"""login_fetch.py — session-material helper for freemilk-bridge.
 
-FreeMilk (Milq AI) sign-in is Firebase Authentication on project
-``milq-mobile``. After sign-in, the app fetches a *hosted model catalog*
-from api.milq.ai; the catalog's per-model endpoints carry the provider
-profile ({baseURL, apiKey, refreshCredentials, ...}) that bridge.py
-replays. The exact issuance path is assembled dynamically in the app and
-is not recoverable statically, so this helper tries an ordered candidate
-list with several auth variants and keeps the first response that
-contains a profile-shaped object. One live pass with real tokens
-resolves which candidate is real; the winner is remembered in the
-credentials file.
+Enrolment reality (RE round 2, 2026-11-19): a Milq account record is
+created at the first sign-in INSIDE the real FreeMilk iOS app, in an
+exchange that carries a DeviceCheck token minted on genuine Apple
+hardware. api.milq.ai's app namespaces reject every non-app client
+(403 "This client is not supported. Please use the Milq iOS app."),
+and Firebase replay from a server is blocked by the app-restricted
+API key. So this helper does NOT enrol accounts: the Firebase web
+sign-in it can serve yields Firebase tokens only, which by themselves
+complete neither enrolment nor profile issuance. The supported input
+is captured session material from an already-enrolled account
+(provider profile + Milq tokens from one genuine app session), stored
+in credentials.json; `fetch` then makes a best-effort attempt — an
+ordered candidate list with several auth variants — to resolve or
+refresh a profile from the stored material, and remembers any winning
+endpoint in the credentials file.
 
 credentials.json layout (single file, shared with bridge.py). Two
 shapes, freely combinable — bridge.py serves every profile it finds:
@@ -40,7 +45,9 @@ shapes, freely combinable — bridge.py serves every profile it finds:
       "firebaseRefreshToken":Firebase refresh token (long-lived),
       "firebaseIdTokenExpiry": epoch seconds,
       "sessionCookie":       portal session cookie header value
-                             (from signing in at account.milq.ai),
+                             (from signing in at account.milq.ai;
+                             note the portal exposes no profile
+                             surface — a cookie alone yields nothing),
       "milqAccessToken":     Milq access token, if an exchange issued one,
       "milqRefreshToken":    Milq refresh token, if issued,
       "appCheckToken":       X-Firebase-AppCheck value, if ever captured,
@@ -48,22 +55,26 @@ shapes, freely combinable — bridge.py serves every profile it finds:
       "profileEndpointUsed": set by `fetch` once a candidate answers
 
 Commands:
-  login        guided one-shot login: serves the sign-in page, takes
+  login        guided token intake: serves the sign-in page, takes
                ONE paste of the token JSON on stdin, stores it, runs
-               fetch, and prints a one-line verdict. Start here.
-  bulk-add     add MANY accounts in one go: reads token JSONs from a
-               file argument (or stdin) — a JSON array, a single
-               object, JSONL, or blank-line-separated pastes — stores
-               each as its own pool account and fetches its profile.
+               fetch, and prints a one-line verdict. It does not
+               enrol accounts — feed it material from an enrolled
+               account's captured session.
+  bulk-add     add MANY accounts in one go: reads captured
+               session/token JSONs from a file argument (or stdin) —
+               a JSON array, a single object, JSONL, or
+               blank-line-separated pastes — stores each as its own
+               pool account and attempts to fetch its profile.
   set-tokens   read a JSON object from stdin with any of {idToken,
                refreshToken, sessionCookie, milqAccessToken,
                milqRefreshToken, appCheckToken} and store it (0600) as
                the legacy account. Secrets are never taken from argv
                (ps exposure) and never printed.
   refresh      refresh the legacy account's Firebase ID token.
-  fetch        ensure fresh ID tokens, then try the candidate
-               issuance endpoints for every account that still lacks a
-               profile; merge hits into credentials.json (0600).
+  fetch        best-effort profile resolution: ensure fresh ID
+               tokens, then try the candidate issuance endpoints for
+               every account that still lacks a profile; merge hits
+               into credentials.json (0600).
   sync-9router detect a local 9Router panel, log in ONCE with the
                console password (PANEL_PASSWORD env or interactive
                prompt — never stored, never logged) and idempotently
@@ -942,10 +953,12 @@ def cmd_serve_auth():
 
 
 def cmd_login(data):
-    """Guided one-shot login: serve the sign-in page, accept ONE paste
-    of the token JSON, store it, fetch the provider profile, and print
-    a one-line verdict. Tokens come from stdin only — never argv,
-    never logs."""
+    """Guided token intake: serve the sign-in page, accept ONE paste
+    of the token JSON, store it, attempt to fetch the provider
+    profile, and print a one-line verdict. This collects token
+    material only — it does not enrol accounts (enrolment is
+    app-only; see the module docstring). Tokens come from stdin
+    only — never argv, never logs."""
     server = _start_auth_server()
     print("Step 1: open http://localhost:18620/auth.html in a browser "
           "on this machine and sign in with Google. (The hostname "

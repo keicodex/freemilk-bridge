@@ -34,7 +34,18 @@ criterion — jump to Troubleshooting.
 - A local 9Router panel (for step 3). Default panel URL is
   `http://127.0.0.1:2013` (the router's `PORT` default); override
   with `PANEL_BASE_URL`.
-- One or more FreeMilk accounts the operator can sign in to.
+- One or more **enrolled** FreeMilk accounts: each must have
+  completed sign-in inside the real FreeMilk iOS app at least once.
+  Enrolment is device-born — the account record is created by an
+  app-only exchange that carries a DeviceCheck token minted on
+  genuine Apple hardware, and `api.milq.ai` rejects non-app clients
+  (`403 "This client is not supported. Please use the Milq iOS app."`).
+  A Google account that has never signed in inside the app **cannot**
+  be enrolled from this box; no web/server path exists.
+- For each account, **captured session material** from one genuine
+  app session (provider profile + Milq tokens — e.g. an MITM capture
+  on the operator's own iPhone). This capture is the input step 2
+  consumes.
 
 ## Step 1 — install and start
 
@@ -56,9 +67,42 @@ curl -s http://127.0.0.1:18611/health
 
 `configured: false` is expected until step 2 completes.
 
-## Step 2 — log accounts in
+## Step 2 — feed account session material
 
-### One account (guided)
+The supported input is **captured session material from
+already-enrolled accounts**: the provider profile + Milq tokens from
+one genuine app session per account (see Step 0). The commands below
+store that material and make a best-effort attempt to resolve or
+refresh each account's profile.
+
+> **A Firebase token JSON alone is NOT sufficient for a
+> never-enrolled account.** The web sign-in page produces Firebase
+> tokens only; it performs no Milq enrolment exchange (that exchange
+> is app-only and carries a DeviceCheck token), and profile issuance
+> sits behind the backend's client gate
+> (`403 "This client is not supported. Please use the Milq iOS app."`).
+> If an account has never signed in inside the app, stop: the
+> operator must enrol it in the app and capture a session first.
+> There is no server-side substitute.
+
+### Captured session material (primary path)
+
+For each enrolled account, extract from the capture the provider
+profile fields and the Milq tokens, and store them:
+
+- Profile + tokens together: write them into `credentials.json`
+  directly (mode 0600; format in the README's *Credentials format*
+  section).
+- Tokens only:
+  `printf '%s' '<paste>' | python3 login_fetch.py set-tokens`
+  accepts `{milqAccessToken, milqRefreshToken, idToken,
+  refreshToken, appCheckToken}`; then `python3 login_fetch.py fetch`
+  attempts to resolve the profile from the stored material.
+
+Success: `python3 login_fetch.py status` shows the account with a
+profile present, and the health check reports `accountsHealthy >= 1`.
+
+### One account (guided token intake)
 
 ```bash
 python3 login_fetch.py login
@@ -69,7 +113,7 @@ The operator opens it in a browser **on this machine**, signs in with
 Google, and the page shows a JSON object with
 `idToken` + `refreshToken`. The operator hands that JSON to you
 **once**; feed it to the waiting command on stdin. It stores the
-tokens, fetches the provider profile, and prints a verdict.
+tokens, attempts to fetch the provider profile, and prints a verdict.
 
 Success: exit code 0 and a line starting `LOGIN OK`.
 
@@ -79,20 +123,21 @@ Success: exit code 0 and a line starting `LOGIN OK`.
 > with `auth/unauthorized-domain` — Firebase's allowlist for the
 > FreeMilk project (milq-mobile) covers `localhost` and Milq's own
 > domains only. Never expose the auth page through a tunnel for
-> login; if the operator cannot open a browser on this machine, use
-> the account.milq.ai cookie alternative below instead.
+> login; if the operator cannot open a browser on this machine, the
+> Firebase-page route is unavailable to them — captured app-session
+> material is the remaining input.
 
-Alternative token source: the operator signs in at
-https://account.milq.ai and hands you the session cookie value
-instead; store it with
-`printf '%s' '<paste>' | python3 login_fetch.py set-tokens`
-(JSON: `{"sessionCookie": "..."}`), then `python3 login_fetch.py fetch`.
+Note: a session cookie from https://account.milq.ai is **not** a
+credential source. The portal exposes account/signing administration
+only — no model catalog, no provider profile — so it cannot feed
+this step, even though the credentials file format can store a
+cookie.
 
 ### Many accounts (bulk)
 
-Collect one token JSON per account (same shape as above) into a
-file — a JSON array, JSONL, or blank-line-separated objects all
-parse. Then:
+Collect one captured session/token JSON per account (enrolled
+accounts only; same shapes as above) into a file — a JSON array,
+JSONL, or blank-line-separated objects all parse. Then:
 
 ```bash
 python3 login_fetch.py bulk-add accounts.json
@@ -158,9 +203,10 @@ curl -s http://127.0.0.1:2013/v1/chat/completions \
 
 | Symptom | Meaning | Action |
 |---|---|---|
-| `login`/`fetch`: every candidate 401/403, errors mention App Check / attestation | api.milq.ai gated the issuance path with Firebase App Check (App Attest). A pure server-side login cannot mint those tokens. | **Stop.** Report it. The only way forward is an `appCheckToken` captured from a real signed-in app session, stored via `set-tokens`. Do not attempt to forge attestation. |
+| `fetch`: every candidate returns 403 `This client is not supported. Please use the Milq iOS app.` | The backend's app-only client gate answered: the request is a non-app client, regardless of which tokens were presented. This is **not** a credentials error — no header, user-agent or token variant changes it. | **Stop** trying web/server issuance for that account. Feed captured session material from a genuine app session of an enrolled account instead (step 2, primary path). Do not attempt to forge attestation. |
+| Firebase web sign-in succeeds and tokens store fine, but no Milq session or profile exists and issuance always fails | The Google account has **never been enrolled**: it has not completed sign-in inside the real FreeMilk iOS app, where the account record is created by the DeviceCheck-gated exchange. | Enrol the account once in the app on a genuine iPhone, capture that app session, and feed the captured material (step 2). There is no server-side substitute. |
 | `sync-9router` exits 2 with "panel login failed" | Wrong console password, or no 9Router at `PANEL_BASE_URL`. | Re-check the password with the operator; verify the panel URL (`curl -s http://127.0.0.1:2013/api/provider-nodes` should 401, not refuse). |
-| Health: `accountsHealthy` dropped; `status` shows an account `dead` | That account's upstream credential was rejected even after refresh (rotated/revoked upstream, allowance account closed). The bridge marked it dead and fails over to the rest. | Re-run `login`/`bulk-add` for that account with a fresh sign-in; then `sync-9router` (its connection already exists). |
+| Health: `accountsHealthy` dropped; `status` shows an account `dead` | That account's upstream credential was rejected even after refresh (rotated/revoked upstream, allowance account closed). The bridge marked it dead and fails over to the rest. | Re-run `login`/`bulk-add` for that account with freshly captured session material; then `sync-9router` (its connection already exists). |
 | Chat returns 503 `freemilk-bridge not configured` | No account carries a profile yet. | Complete step 2; `login_fetch.py fetch` retries profile issuance for accounts that have material but no profile. |
 | Chat returns 401 from the bridge | Key material is configured and the presented key matches neither the master `BRIDGE_API_KEY` nor any account `bridgeKey`. | Use the connection's bridgeKey (see the panel connection), or set the master key env on the bridge. |
 | Panel console "validate" button fails for the node while chats work | The console's SSRF guard refuses localhost base URLs when the console itself is reached through a tunnel/public URL. Node creation and chat execution are server-side and unaffected. | Ignore the validate result; verify with the step-4 panel chat instead. |
