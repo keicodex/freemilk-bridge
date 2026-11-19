@@ -1,0 +1,23 @@
+[Unit]
+Description=freemilk-bridge - FreeMilk (Milq AI) provider profile to OpenAI-compatible API bridge (localhost only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__DIR__
+Environment=HOME=__HOME__
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=FREEMILK_BRIDGE_HOST=127.0.0.1
+Environment=FREEMILK_BRIDGE_PORT=18611
+Environment=FREEMILK_BRIDGE_CREDENTIALS=__DIR__/credentials.json
+ExecStart=__PYTHON__ __DIR__/bridge.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

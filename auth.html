@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<!--
+  freemilk-bridge sign-in page.
+
+  Completes a Firebase (project: milq-mobile) Google sign-in and shows
+  the resulting ID token + refresh token ONCE, for hand-off to
+  `login_fetch.py set-tokens` on the bridge box.
+
+  IMPORTANT: Firebase web auth only works from an *authorised origin*.
+  `localhost` is authorised by default in every Firebase project, so
+  serve this file locally (e.g. `python3 login_fetch.py serve-auth`,
+  then open http://127.0.0.1:18620/auth.html) or open it on any other
+  origin the project owner has authorised. Opening it from an arbitrary
+  internet domain will fail with auth/unauthorized-domain.
+
+  The tokens are rendered only in this page (client-side). Nothing is
+  sent anywhere except to Google's own sign-in endpoints.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>freemilk-bridge — FreeMilk sign-in</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 42rem; padding: 0 1rem; }
+  textarea { width: 100%; min-height: 5.5rem; font-family: monospace; font-size: 0.75rem; }
+  button { padding: 0.5rem 1rem; margin: 0.25rem 0.25rem 0.25rem 0; cursor: pointer; }
+  .warn { background: #fff3cd; border: 1px solid #e0c36a; padding: 0.75rem; border-radius: 6px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>FreeMilk sign-in for freemilk-bridge</h1>
+<p>Sign in with the Google account you use for FreeMilk. The page will
+show a Firebase <strong>ID token</strong> and <strong>refresh token</strong>.
+Hand both to the bridge once
+(<code>login_fetch.py set-tokens</code>); the refresh token lets the
+bridge renew the ID token by itself afterwards.</p>
+<p class="warn">Treat the refresh token like a password: whoever holds
+it can mint ID tokens for this FreeMilk account until you sign out /
+revoke sessions. It is stored only in the bridge's 0600 credentials
+file.</p>
+
+<button id="signin">Sign in with Google</button>
+<p id="status"></p>
+
+<div id="result" class="hidden">
+  <h2>Tokens</h2>
+  <p>Paste this JSON to <code>login_fetch.py set-tokens</code>:</p>
+  <textarea id="combined" readonly></textarea>
+  <button data-copy="combined">Copy JSON</button>
+  <h3>ID token</h3>
+  <textarea id="idtoken" readonly></textarea>
+  <button data-copy="idtoken">Copy</button>
+  <h3>Refresh token</h3>
+  <textarea id="refreshtoken" readonly></textarea>
+  <button data-copy="refreshtoken">Copy</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+  // Public client identifiers of the milq-mobile Firebase project
+  // (shipped inside the FreeMilk app; identifiers, not credentials).
+  var firebaseConfig = {
+    apiKey: "AIzaSyCUPyE6B8H4-8pBJs3cH7vQ9sBdqJ2nF8M",
+    authDomain: "milq-mobile.firebaseapp.com",
+    projectId: "milq-mobile"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var auth = firebase.auth();
+
+  document.getElementById("signin").addEventListener("click", function () {
+    var status = document.getElementById("status");
+    status.textContent = "Opening Google sign-in…";
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).then(function () {
+      var user = auth.currentUser;
+      return user.getIdToken().then(function (idToken) {
+        document.getElementById("idtoken").value = idToken;
+        document.getElementById("refreshtoken").value = user.refreshToken;
+        document.getElementById("combined").value = JSON.stringify({
+          idToken: idToken,
+          refreshToken: user.refreshToken
+        });
+        document.getElementById("result").classList.remove("hidden");
+        status.textContent = "Signed in as " + (user.email || user.uid);
+      });
+    }).catch(function (error) {
+      status.textContent = "Sign-in failed: " + error.code + " — " +
+        error.message;
+    });
+  });
+
+  document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var el = document.getElementById(button.getAttribute("data-copy"));
+      el.select();
+      document.execCommand("copy");
+    });
+  });
+</script>
+</body>
+</html>

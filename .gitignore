@@ -1,0 +1,10 @@
+# Harvested credentials — NEVER commit these.
+credentials.json
+credentials.json.tmp
+
+# Python
+__pycache__/
+*.pyc
+
+# Local test artifacts
+*.log
