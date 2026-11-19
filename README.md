@@ -54,6 +54,7 @@ bridge is fed:
   of your own session on your own iPhone), stored in
   `credentials.json` (see *Credentials format*). From there the
   bridge serves requests and attempts refreshes server-side.
+  `capture_ingest.py ingest <capture.har>` automates that feed from a HAR / mitmproxy export (and its manual `replay-prepare` subcommand tests whether fresh proxy keys can be minted from your host at all).
 - **Known unknowns, stated plainly.** Profile issuance is IP-aware
   (the backend returns a `clientIP` when a profile is prepared), and
   whether Milq token refresh and profile re-issuance work from a

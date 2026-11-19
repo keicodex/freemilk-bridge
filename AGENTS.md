@@ -155,6 +155,51 @@ python3 login_fetch.py status
 curl -s http://127.0.0.1:18611/health   # accountsHealthy >= 1
 ```
 
+## Step 2b — ingest a capture automatically (capture_ingest.py)
+
+Step 2's captured material normally arrives as a proxy export
+(Proxyman / Charles HAR, or mitmproxy flow JSON) from the operator's
+own genuine app session. `capture_ingest.py` turns that file into
+credentials without hand-copying fields:
+
+```bash
+python3 capture_ingest.py ingest session.har --out . [--egress-ip <ip>]
+```
+
+It identifies the exchanges by payload *shape* (the real backend
+paths are assembled dynamically in the app and are not literals):
+the sign-in exchange (`device_check_token` / TokenResponse), the
+prepare/configs call (ConfigsResponse), the catalog, the first
+provider chat, a second prepare, and any session refresh. It writes
+`credentials.json` (the profile from the **last** prepare, the
+latest Milq session tokens, and a `refreshCredentials` hook that
+re-issues the captured prepare request when the provider rejects a
+key) plus `capture_report.json` — checklist coverage against the
+minimal capture set, the prepare request's full header set + path,
+its `clientIP` vs the `--egress-ip` note, and the measured interval
+between prepares (the proxy token's rotation evidence; the response
+carries no TTL field). Both files are mode 0600; token values are
+never printed (fingerprints only). Exit 2 means the capture held no
+prepare exchange — re-capture with the prepare call included.
+
+Then run the decisive experiment **once, by hand** (never automate
+it, never loop it):
+
+```bash
+python3 capture_ingest.py replay-prepare session.har
+```
+
+It re-issues the captured prepare request from this box, with the
+Milq session auth taken from the ingested credentials, and prints
+one verdict: **REPLAYABLE** with a fresh apiKey (prepare answers
+server-side — the bridge can self-mint proxy keys, no per-rotation
+re-capture), **REPLAYABLE** with the same apiKey (no rotation
+observed), **BLOCKED** (the prepare namespace sits behind the
+client gate — captured keys are consumables, ~45 min each, and only
+a fresh genuine-app capture mints another), or **FAILED /
+INCONCLUSIVE**. That verdict decides whether the bridge runs
+durably from captures alone or lives capture-to-capture.
+
 ## Step 3 — register in 9Router (automatic)
 
 ```bash
@@ -220,4 +265,5 @@ Run the full test suite (all offline, mock upstreams + mock panel):
 python3 tests/selftest.py        # bridge: protocols, 9Router shapes, pool
 python3 tests/login_selftest.py  # login / fetch / bulk-add vs fake Milq
 python3 tests/sync_selftest.py   # sync-9router vs mock panel
+python3 tests/capture_selftest.py  # capture ingest + replay-prepare vs stub
 ```
